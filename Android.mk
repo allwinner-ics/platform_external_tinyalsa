@@ -35,4 +35,6 @@ LOCAL_MODULE := tinymix
 LOCAL_SHARED_LIBRARIES:= libcutils libutils libtinyalsa
 LOCAL_MODULE_TAGS := optional
 
+LOCAL_SHARED_LIBRARIES += liblog
+
 include $(BUILD_EXECUTABLE)
