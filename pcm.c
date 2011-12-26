@@ -25,9 +25,6 @@
 ** OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 ** DAMAGE.
 */
-// #define LOG_NDEBUG 0
-#define LOG_TAG "tinyalse_pcm"
-#include <cutils/log.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,8 +47,6 @@
 #include <sound/asound.h>
 
 #include <tinyalsa/asoundlib.h>
-
-#define F_LOG LOGV("%s, line: %d", __FUNCTION__, __LINE__);
 
 #define PARAM_MAX SNDRV_PCM_HW_PARAM_LAST_INTERVAL
 #define SNDRV_PCM_HW_PARAMS_NO_PERIOD_WAKEUP (1<<2)
@@ -146,69 +141,6 @@ static void param_init(struct snd_pcm_hw_params *p)
 }
 
 #define PCM_ERROR_MAX 128
-
-#define FOR_DEBUG 0
-#if FOR_DEBUG
-static const char *param_name[PARAM_MAX+1] = {
-    [SNDRV_PCM_HW_PARAM_ACCESS] = "access",
-    [SNDRV_PCM_HW_PARAM_FORMAT] = "format",
-    [SNDRV_PCM_HW_PARAM_SUBFORMAT] = "subformat",
-
-    [SNDRV_PCM_HW_PARAM_SAMPLE_BITS] = "sample_bits",
-    [SNDRV_PCM_HW_PARAM_FRAME_BITS] = "frame_bits",
-    [SNDRV_PCM_HW_PARAM_CHANNELS] = "channels",
-    [SNDRV_PCM_HW_PARAM_RATE] = "rate",
-    [SNDRV_PCM_HW_PARAM_PERIOD_TIME] = "period_time",
-    [SNDRV_PCM_HW_PARAM_PERIOD_SIZE] = "period_size",
-    [SNDRV_PCM_HW_PARAM_PERIOD_BYTES] = "period_bytes",
-    [SNDRV_PCM_HW_PARAM_PERIODS] = "periods",
-    [SNDRV_PCM_HW_PARAM_BUFFER_TIME] = "buffer_time",
-    [SNDRV_PCM_HW_PARAM_BUFFER_SIZE] = "buffer_size",
-    [SNDRV_PCM_HW_PARAM_BUFFER_BYTES] = "buffer_bytes",
-    [SNDRV_PCM_HW_PARAM_TICK_TIME] = "tick_time",
-};
-
-static void param_dump(struct snd_pcm_hw_params *p)
-{
-    int n;
-
-    for (n = SNDRV_PCM_HW_PARAM_FIRST_MASK;
-         n <= SNDRV_PCM_HW_PARAM_LAST_MASK; n++) {
-            struct snd_mask *m = param_to_mask(p, n);
-            LOGV("%s = %08x%08x\n", param_name[n],
-                   m->bits[1], m->bits[0]);
-    }
-    for (n = SNDRV_PCM_HW_PARAM_FIRST_INTERVAL;
-         n <= SNDRV_PCM_HW_PARAM_LAST_INTERVAL; n++) {
-            struct snd_interval *i = param_to_interval(p, n);
-            LOGV("%s = (%d,%d) omin=%d omax=%d int=%d empty=%d\n",
-                   param_name[n], i->min, i->max, i->openmin,
-                   i->openmax, i->integer, i->empty);
-    }
-    LOGV("info = %08x\n", p->info);
-    LOGV("msbits = %d\n", p->msbits);
-    LOGV("rate = %d/%d\n", p->rate_num, p->rate_den);
-    LOGV("fifo = %d\n", (int) p->fifo_size);
-}
-
-static void info_dump(struct snd_pcm_info *info)
-{
-    LOGV("device = %d\n", info->device);
-    LOGV("subdevice = %d\n", info->subdevice);
-    LOGV("stream = %d\n", info->stream);
-    LOGV("card = %d\n", info->card);
-    LOGV("id = '%s'\n", info->id);
-    LOGV("name = '%s'\n", info->name);
-    LOGV("subname = '%s'\n", info->subname);
-    LOGV("dev_class = %d\n", info->dev_class);
-    LOGV("dev_subclass = %d\n", info->dev_subclass);
-    LOGV("subdevices_count = %d\n", info->subdevices_count);
-    LOGV("subdevices_avail = %d\n", info->subdevices_avail);
-}
-#else
-static void param_dump(struct snd_pcm_hw_params *p) {}
-static void info_dump(struct snd_pcm_info *info) {}
-#endif
 
 struct pcm {
     int fd;
@@ -500,7 +432,6 @@ static struct pcm bad_pcm = {
 
 int pcm_close(struct pcm *pcm)
 {
-	F_LOG;
     if (pcm == &bad_pcm)
         return 0;
 
@@ -517,14 +448,12 @@ int pcm_close(struct pcm *pcm)
     pcm->buffer_size = 0;
     pcm->fd = -1;
     free(pcm);
-	LOGD("pcm_close OK");
     return 0;
 }
 
 struct pcm *pcm_open(unsigned int card, unsigned int device,
                      unsigned int flags, struct pcm_config *config)
 {
-	F_LOG;
     struct pcm *pcm;
     struct snd_pcm_info info;
     struct snd_pcm_hw_params params;
@@ -542,15 +471,11 @@ struct pcm *pcm_open(unsigned int card, unsigned int device,
              flags & PCM_IN ? 'c' : 'p');
 
     pcm->flags = flags;
-
-	LOGD("to open dev: %s, flag: %x", fn, flags);
     pcm->fd = open(fn, O_RDWR);
     if (pcm->fd < 0) {
         oops(pcm, errno, "cannot open device '%s'", fn);
-		LOGD("open dev: %s, flag: %x failed", fn, flags);
         return pcm;
     }
-	LOGD("open dev: %s, flag: %x ok", fn, flags);
 
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_INFO, &info)) {
         oops(pcm, errno, "cannot get info");
@@ -561,8 +486,8 @@ struct pcm *pcm_open(unsigned int card, unsigned int device,
     param_set_mask(&params, SNDRV_PCM_HW_PARAM_FORMAT,
                    pcm_format_to_alsa(config->format));
     param_set_mask(&params, SNDRV_PCM_HW_PARAM_SUBFORMAT,
-                   SNDRV_PCM_SUBFORMAT_STD); 
-    param_set_min(&params, SNDRV_PCM_HW_PARAM_PERIOD_SIZE, config->period_size);  
+                   SNDRV_PCM_SUBFORMAT_STD);
+    param_set_min(&params, SNDRV_PCM_HW_PARAM_PERIOD_SIZE, config->period_size);
     param_set_int(&params, SNDRV_PCM_HW_PARAM_SAMPLE_BITS,
                   pcm_format_to_bits(config->format));
     param_set_int(&params, SNDRV_PCM_HW_PARAM_FRAME_BITS,
@@ -590,15 +515,10 @@ struct pcm *pcm_open(unsigned int card, unsigned int device,
         param_set_mask(&params, SNDRV_PCM_HW_PARAM_ACCESS,
                    SNDRV_PCM_ACCESS_RW_INTERLEAVED);
 
-	// add for debug
-    param_dump(&params);
-
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_HW_PARAMS, &params)) {
         oops(pcm, errno, "cannot set hw params");
         goto fail_close;
     }
-	
-    param_dump(&params);
 
     /* get our refined hw_params */
     config->period_size = param_get_int(&params, SNDRV_PCM_HW_PARAM_PERIOD_SIZE);
@@ -679,7 +599,6 @@ int pcm_is_ready(struct pcm *pcm)
 
 int pcm_start(struct pcm *pcm)
 {
-	F_LOG;
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_PREPARE) < 0)
         return oops(pcm, errno, "cannot prepare channel");
 
@@ -689,14 +608,12 @@ int pcm_start(struct pcm *pcm)
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_START) < 0)
         return oops(pcm, errno, "cannot start channel");
 
-	LOGD("pcm_start OK");
     pcm->running = 1;
     return 0;
 }
 
 int pcm_stop(struct pcm *pcm)
 {
-	F_LOG;
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_DROP) < 0)
         return oops(pcm, errno, "cannot stop channel");
 
@@ -897,16 +814,16 @@ int pcm_mmap_write(struct pcm *pcm, void *buffer, unsigned int bytes)
                 if (pcm->flags & PCM_NOIRQ)
                     time = (pcm->config.avail_min - avail) / pcm->noirq_frames_per_msec;
 
-//                err = pcm_wait(pcm, time);
-//                if (err < 0) {
-//                    pcm->running = 0;
-//                    oops(pcm, err, "wait error: hw 0x%x app 0x%x avail 0x%x\n",
-//                        (unsigned int)pcm->mmap_status->hw_ptr,
-//                        (unsigned int)pcm->mmap_control->appl_ptr,
-//                        avail);
-//                    pcm->mmap_control->appl_ptr = 0;
-//                    return err;
-//                }
+                err = pcm_wait(pcm, time);
+                if (err < 0) {
+                    pcm->running = 0;
+                    oops(pcm, err, "wait error: hw 0x%x app 0x%x avail 0x%x\n",
+                        (unsigned int)pcm->mmap_status->hw_ptr,
+                        (unsigned int)pcm->mmap_control->appl_ptr,
+                        avail);
+                    pcm->mmap_control->appl_ptr = 0;
+                    return err;
+                }
                 continue;
             }
         }
@@ -935,4 +852,3 @@ int pcm_mmap_write(struct pcm *pcm, void *buffer, unsigned int bytes)
 _end:
     return 0;
 }
-
